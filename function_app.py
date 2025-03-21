@@ -284,5 +284,5 @@ def pending_tasks(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     
-#estados validos
+# estados validos 
 # pending, failed, executed
