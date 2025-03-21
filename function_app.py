@@ -84,10 +84,6 @@ def display_item_by_id(json_str: list, tid: str) -> Dict[str, Any]:
             "error": f"Error inesperado: {str(e)}"
         }
 
-
-
-
-
 # ----------------------------
 # Endpoint Orquestador
 # ----------------------------
@@ -165,7 +161,7 @@ def get_status(req: func.HttpRequest) -> func.HttpResponse:
         result = display_item_by_id(sample_json, id_to_find)
         return func.HttpResponse(
                 json.dumps(result),
-                status_code=404,
+                status_code=200,
                 mimetype="application/json"
             )
 
@@ -177,4 +173,100 @@ def get_status(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
 
+# ----------------------------
+# Endpoint Update Status
+# ----------------------------
+@app.route(route="update_status", auth_level=func.AuthLevel.ANONYMOUS)
+def update_status(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info("Inicio de update_status")
+    try:
+        tid = req.params.get("tid")
+        new_status = req.params.get("status")
+        logging.info(tid)
+        logging.info(new_status)
+        
+        if not tid or not new_status:
+            return func.HttpResponse(
+                json.dumps({"error": "Parametros 'tid' y 'status' son requeridos"}),
+                status_code=400,
+                mimetype="application/json"
+            )
+        if new_status not in ["pending", "executed", "failed"]:
+            return func.HttpResponse(
+                json.dumps({"error": "El estado debe ser 'pending', 'executed' o 'failed'"}),
+                status_code=400,
+                mimetype="application/json"
+            )
+        
+        id_to_find = tid
+        tid_separado= id_to_find.split('-')
+        vdom=tid_separado[1]
+        name_file=f"bloqueos_{vdom}.json"
 
+        old_s_task = get_task(id_to_find, name_file)
+        # Validacion de que existe
+        if not old_s_task:
+            return func.HttpResponse(
+                json.dumps({"error": "Tarea no encontrada"}),
+                status_code=404,
+                mimetype="application/json"
+            )
+        
+        old_s_task["status"] = new_status
+        old_s_task["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_task(old_s_task, name_file)
+
+        return func.HttpResponse(
+            json.dumps({
+                "tid": tid,
+                "status": new_status
+            }),
+            status_code=200,
+            mimetype="application/json"
+        )
+
+    except Exception as e:
+        logging.error(f"Error en get_status: {e}")
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=500,
+            mimetype="application/json"
+        )
+
+# ----------------------------
+# Endpoint Get Pending Tasks
+# ----------------------------
+@app.route(route="pending_tasks", auth_level=func.AuthLevel.ANONYMOUS)
+def pending_tasks(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Inicio de pending_tasks.')
+    IP_DEL_FIREWALL = os.getenv("IP_DEL_FIREWALL")
+    TOKEN_DE_AUTENTICACION = os.getenv("TOKEN_DE_AUTENTICACION")
+            
+    vdom = req.params.get('vdom')
+    if not vdom:
+            return func.HttpResponse(
+                json.dumps({"error": "Parametro 'vdom' es requerido"}),
+                status_code=404,
+                mimetype="application/json"
+            )
+    name_file=f"bloqueos_{vdom}.json"
+    tasks = load_all_tasks(name_file)
+    pending_tasks = [task for task in tasks if task.get("status") == "pending"]
+    
+    response= {
+        "host": IP_DEL_FIREWALL,
+        "token": TOKEN_DE_AUTENTICACION,
+        "vdom": vdom,
+        "data": pending_tasks
+    }
+    
+    return func.HttpResponse(
+        json.dumps(response),
+        status_code=200,
+        mimetype="application/json"
+    )
+    
+        
+    
+
+# pending, failed, executed

@@ -44,7 +44,7 @@ def load_all_tasks(task_blob_name):
 
 def save_all_tasks(tasks, task_blob_name):
     """
-    Guarda la lista completa de tareas en el archivo list_of_tasks_in_progress.json en Blob Storage.
+    Guarda la lista completa de tareas en el archivo JSON correspondiente en Blob Storage.
     """
     blob_client = container_client.get_blob_client(task_blob_name)
     blob_client.upload_blob(json.dumps(tasks, ensure_ascii=False, indent=4), overwrite=True)
@@ -59,7 +59,7 @@ def add_task(task, task_blob_name):
 
 def delete_task(tid, task_blob_name):
     """
-    Elimina una tarea del archivo list_of_tasks_in_progress.json basada en su tid.
+    Elimina una tarea del archivo JSON correspondient basado en su tid.
     """
     tasks = load_all_tasks(task_blob_name)
     tasks = [task for task in tasks if task.get("tid") != tid]
@@ -67,35 +67,19 @@ def delete_task(tid, task_blob_name):
 
 def get_task(tid, task_blob_name):
     """
-    Obtiene una tarea del archivo list_of_tasks_in_progress.json por su tid.
-    Primero busca coincidencia exacta en el campo "tid" o en "historical_tids".
-    Si no se encuentra, intenta buscar por current_tid y cliente.
+    Obtiene una tarea del archivo JSON por su tid.
     """
     tasks = load_all_tasks(task_blob_name)
     
     # Buscar coincidencia exacta en tid o en historical_tids
     for task in tasks:
         if task.get("tid") == tid:
-            return task
-        historical_tids = task.get("historical_tids", [])
-        if tid in historical_tids:
-            return task
-
-    # Si no se encontró, buscar por current_tid y cliente
-    parts = tid.split("-")
-    if len(parts) < 2:
-        return None
-    base_tid, cliente = parts[0], parts[1]
-    
-    for task in tasks:
-        if task.get("current_tid") == base_tid and task.get("cliente") == cliente:
-            return task
-    
+            return task    
     return None
 
 def update_task(updated_task, task_blob_name):
     """
-    Actualiza una tarea existente en el archivo list_of_tasks_in_progress.json.
+    Actualiza una tarea existente en el archivo JSON.
     """
     tasks = load_all_tasks(task_blob_name)
     for i, task in enumerate(tasks):
