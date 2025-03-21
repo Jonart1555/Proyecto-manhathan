@@ -90,8 +90,7 @@ def display_item_by_id(json_str: list, tid: str) -> Dict[str, Any]:
 @app.route(route="orquestador")
 def orquestador(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        logging.info("Inicio de orquestador de tareas")
-
+        logging.info(f"app-{ulid}-[Exito]-[orquestador de tareas]")
         req_body = req.get_json()
         
         service  = req_body.get("service")
@@ -102,6 +101,7 @@ def orquestador(req: func.HttpRequest) -> func.HttpResponse:
         action   = req_body.get("action")
       
         if not all([service, vdom, obj, gdr, ticket, action]):
+            logging.error(f"app-{ulid}-[Fallo]-[Faltan campos obligatorios]")
             return func.HttpResponse(
                 json.dumps({"error": "Faltan campos obligatorios"}),
                 status_code=400,
@@ -120,14 +120,15 @@ def orquestador(req: func.HttpRequest) -> func.HttpResponse:
             }
         )
         add_task(task_data, f"bloqueos_{vdom}.json")
-        logging.info(f"Tarea agregada: {task_data}")
+        logging.info(f"app-{ulid}-[Exito]-[Tarea agregada: {task_data}]")
         return func.HttpResponse(
             json.dumps(task_data),
             status_code=200,
             mimetype="application/json"
         )
     except Exception as e:
-        logging.error(f"Error en orquestador: {e}")
+        logging.error(f"app-{ulid}-[Fallo]-[Error en orquestador: {e}]")
+        
         
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
@@ -140,25 +141,27 @@ def orquestador(req: func.HttpRequest) -> func.HttpResponse:
 # ----------------------------
 @app.route(route="get_status/{tid}", auth_level=func.AuthLevel.ANONYMOUS)
 def get_status(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info("Inicio de get_status")
+    ulid = str(ULID())  # Genera un ULID único
+    logging.info(f"app-{ulid}-[Exito]-[Inicio de get_status]")
     try:
         tid = req.route_params.get("tid")
         
         if not tid:
+            logging.error(f"app-{ulid}-[Fallo]-[Fallo en el ingreso de Parametros(tid)]")
             return func.HttpResponse(
                 json.dumps({"error": "Parámetro 'tid' es requerido"}),
                 status_code=404,
                 mimetype="application/json"
             )
         id_to_find = tid
-        print(id_to_find)
         tid_separado= id_to_find.split('-')
         vdom=tid_separado[1]
-        print(vdom)
         name_file=f"bloqueos_{vdom}.json"
         sample_json = load_all_tasks(name_file)
-        print(sample_json)
+        logging.info(f"app-{ulid}-[Exito]-[Obtencion de Lista de Tareas]")
         result = display_item_by_id(sample_json, id_to_find)
+        logging.info(f"app-{ulid}-[Exito]-[Busqueda de tarea especifica de tarea en  Lista de Tareas]")
+        logging.info(f"app-{ulid}-[Exito]-[Funcion Finalizada correctamente]")
         return func.HttpResponse(
                 json.dumps(result),
                 status_code=200,
@@ -166,7 +169,7 @@ def get_status(req: func.HttpRequest) -> func.HttpResponse:
             )
 
     except Exception as e:
-        logging.error(f"Error en get_status: {e}")
+        logging.error(f"app-{ulid}-[Fallo]-[Error en get_status: {e}]")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,
@@ -178,20 +181,21 @@ def get_status(req: func.HttpRequest) -> func.HttpResponse:
 # ----------------------------
 @app.route(route="update_status", auth_level=func.AuthLevel.ANONYMOUS)
 def update_status(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info("Inicio de update_status")
+    ulid = str(ULID())  # Genera un ULID único
+    logging.info(f"app-{ulid}-[Exito]-[Inicio de update_status]")
     try:
         tid = req.params.get("tid")
         new_status = req.params.get("status")
-        logging.info(tid)
-        logging.info(new_status)
         
         if not tid or not new_status:
+            logging.error(f"app-{ulid}-[Fallo]-[error: Parametros 'tid' y 'status' son requeridos]")
             return func.HttpResponse(
                 json.dumps({"error": "Parametros 'tid' y 'status' son requeridos"}),
                 status_code=400,
                 mimetype="application/json"
             )
         if new_status not in ["pending", "executed", "failed"]:
+            logging.error(f"app-{ulid}-[Fallo]-[El estado debe ser 'pending', 'executed' o 'failed']")
             return func.HttpResponse(
                 json.dumps({"error": "El estado debe ser 'pending', 'executed' o 'failed'"}),
                 status_code=400,
@@ -206,6 +210,7 @@ def update_status(req: func.HttpRequest) -> func.HttpResponse:
         old_s_task = get_task(id_to_find, name_file)
         # Validacion de que existe
         if not old_s_task:
+            logging.error(f"app-{ulid}-[Fallo]-[Tarea no encontrada]")
             return func.HttpResponse(
                 json.dumps({"error": "Tarea no encontrada"}),
                 status_code=404,
@@ -215,7 +220,7 @@ def update_status(req: func.HttpRequest) -> func.HttpResponse:
         old_s_task["status"] = new_status
         old_s_task["updated_at"] = datetime.now(timezone.utc).isoformat()
         update_task(old_s_task, name_file)
-
+        logging.info(f"app-{ulid}-[Exito]-[Funcion Finalizada correctamente]")
         return func.HttpResponse(
             json.dumps({
                 "tid": tid,
@@ -226,7 +231,7 @@ def update_status(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     except Exception as e:
-        logging.error(f"Error en get_status: {e}")
+        logging.error(f"app-{ulid}-[Fallo]-[Error en get_status: {e}]")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,
@@ -238,35 +243,46 @@ def update_status(req: func.HttpRequest) -> func.HttpResponse:
 # ----------------------------
 @app.route(route="pending_tasks", auth_level=func.AuthLevel.ANONYMOUS)
 def pending_tasks(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Inicio de pending_tasks.')
-    IP_DEL_FIREWALL = os.getenv("IP_DEL_FIREWALL")
-    TOKEN_DE_AUTENTICACION = os.getenv("TOKEN_DE_AUTENTICACION")
-            
-    vdom = req.params.get('vdom')
-    if not vdom:
-            return func.HttpResponse(
-                json.dumps({"error": "Parametro 'vdom' es requerido"}),
-                status_code=404,
-                mimetype="application/json"
-            )
-    name_file=f"bloqueos_{vdom}.json"
-    tasks = load_all_tasks(name_file)
-    pending_tasks = [task for task in tasks if task.get("status") == "pending"]
     
-    response= {
-        "host": IP_DEL_FIREWALL,
-        "token": TOKEN_DE_AUTENTICACION,
-        "vdom": vdom,
-        "data": pending_tasks
-    }
-    
-    return func.HttpResponse(
-        json.dumps(response),
-        status_code=200,
-        mimetype="application/json"
-    )
-    
+    try:
+        ulid = str(ULID())  # Genera un ULID único
+        logging.info(f"app-{ulid}-[Exito]-[Inicio de pending_tasks.]")
+        IP_DEL_FIREWALL = os.getenv("IP_DEL_FIREWALL")
+        TOKEN_DE_AUTENTICACION = os.getenv("TOKEN_DE_AUTENTICACION")
+                
+        vdom = req.params.get('vdom')
+        if not vdom:
+                logging.error(f"app-{ulid}-[Fallo]-[Fallo en el ingreso de Parametros(vdom)]")
+                return func.HttpResponse(
+                    json.dumps({"error": "Parametro 'vdom' es requerido"}),
+                    status_code=404,
+                    mimetype="application/json"
+                )
+        name_file=f"bloqueos_{vdom}.json"
+        tasks = load_all_tasks(name_file)
+        logging.info(f"app-{ulid}-[Exito]-[Obtencion de Lista de Tareas]")
+        pending_tasks = [task for task in tasks if task.get("status") == "pending"]
+        logging.info(f"app-{ulid}-[Exito]-[Obtencion de Lista Filtrada de Tareas]")
+        response= {
+            "host": IP_DEL_FIREWALL,
+            "token": TOKEN_DE_AUTENTICACION,
+            "vdom": vdom,
+            "data": pending_tasks
+        }
+        logging.info(f"app-{ulid}-[Exito]-[Funcion Finalizada correctamente]")
+        return func.HttpResponse(
+            json.dumps(response),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        logging.error(f"app-{ulid}-[Fallo]-[Error en get_status: {e}]")
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=500,
+            mimetype="application/json"
+        )
         
     
-
+#estados validos
 # pending, failed, executed
